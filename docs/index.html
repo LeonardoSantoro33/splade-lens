@@ -139,6 +139,9 @@ footer a, .byline { overflow-wrap: anywhere; }
 .live .go:disabled { opacity: .55; cursor: progress; }
 .live .status { color: var(--muted); font-size: .95rem; margin: 10px 0 0; min-height: 1.4em; }
 .picker button.own { border-style: dashed; }
+.live:not([hidden]) { animation: pop .25s ease-out; }
+@keyframes pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .live:not([hidden]) { animation: none; } }
 .live .prec { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
 .live .prec button { font: inherit; font-size: .95rem; cursor: pointer; padding: 6px 14px; border: 1px solid var(--rule); border-radius: 999px; background: var(--paper); color: var(--ink); }
 .live .prec button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
@@ -376,13 +379,15 @@ footer a, .byline { overflow-wrap: anywhere; }
       wrap.style.paddingBottom = "46px";
       W = wrap.getBoundingClientRect();
       const last = rel(terms[terms.length - 1]);
-      const tx = Math.max(0, W.width - tw);
+      const x = (last.l + last.r) / 2;
+      const tx = Math.max(0, Math.min(x - 14, W.width - tw));   // the note starts right under the arrow when it can
       const ty = W.height - 6;
       t.setAttribute("x", tx); t.setAttribute("y", ty);
-      const x = (last.l + last.r) / 2;
       const ax = Math.min(Math.max(x, tx + 10), tx + tw - 10);
       const p = document.createElementNS(NS, "path");
-      p.setAttribute("d", `M${ax},${ty - 17} C${ax},${(ty - 17 + last.b) / 2} ${x},${(ty - 17 + last.b) / 2} ${x},${last.b + 4}`);
+      p.setAttribute("d", Math.abs(ax - x) < 2
+        ? `M${x},${ty - 17} L${x},${last.b + 4}`                    // straight up
+        : `M${ax},${ty - 17} C${ax},${(ty - 17 + last.b) / 2} ${x},${(ty - 17 + last.b) / 2} ${x},${last.b + 4}`);
       p.setAttribute("marker-end", "url(#ah2)");
       svg.appendChild(p);
       svg.setAttribute("height", W.height);
@@ -408,7 +413,8 @@ footer a, .byline { overflow-wrap: anywhere; }
     $("caption").textContent = `${pct(q.expansion_weight_share)} of the total weight is on terms SPLADE added.`;
     $("ex-note").textContent = ex.note || "";
     renderScore(ex);
-    document.querySelectorAll("#picker button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === k)));
+    document.querySelectorAll("#picker button").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.id === "own-btn" ? ex.id === "custom" : +b.dataset.i === k)));
   }
   function lightSource(btn, on) {
     const pos = btn.dataset.pos;
@@ -424,7 +430,7 @@ footer a, .byline { overflow-wrap: anywhere; }
   $("q-vector").addEventListener("mouseleave", () => document.querySelectorAll("#q-tokens .tok").forEach((s) => s.classList.remove("lit")));
 
   function renderPicker() {
-    $("picker").innerHTML = D.examples.map((ex, i) => `<button type="button" aria-pressed="false" data-i="${i}">${ex.id === "custom" ? "Your text: " : ""}${esc(ex.query.text)}</button>`).join("") +
+    $("picker").innerHTML = D.examples.map((ex, i) => ex.id === "custom" ? "" : `<button type="button" aria-pressed="false" data-i="${i}">${esc(ex.query.text)}</button>`).join("") +
       (D.browser_model ? `<button type="button" class="own" aria-expanded="false" id="own-btn">Try your own text</button>` : "");
   }
   renderPicker();
@@ -435,9 +441,15 @@ footer a, .byline { overflow-wrap: anywhere; }
       const open = $("live").hidden;
       $("live").hidden = !open;
       b.setAttribute("aria-expanded", String(open));
-      if (open) $("live-q").focus();
+      if (open) {
+        const k = D.examples.findIndex((e) => e.id === "custom");
+        if (k >= 0) renderExample(k);          // show the last explanation of your own text again
+        $("live-q").focus({ preventScroll: true });
+      }
       return;
     }
+    $("live").hidden = true;                    // the box belongs to "Try your own text" only
+    const own = $("own-btn"); if (own) own.setAttribute("aria-expanded", "false");
     renderExample(+b.dataset.i);
   });
   // Used by the in-browser model (module script below): show an explanation computed live.
@@ -642,7 +654,7 @@ if (D && D.browser_model) {
       const q = await encode(tok, model, qt, D.max_length);
       const d = await encode(tok, model, dt, D.max_length);
       d.terms = d.all.map((t) => ({ term: t.term, w: t.w, pos: t.pos, in_input: t.in_input }));   // all terms, for the hover
-      const ex = { id: "custom", note: `Computed in your browser with ${D.browser_model} (${dtype() === "fp32" ? "full precision" : "8-bit"})${dtype() === "fp32" ? "." : "; numbers can differ slightly from the precomputed examples."}`, ...explain(q, d) };
+      const ex = { id: "custom", note: "", ...explain(q, d) };
       window.SPLADE_UI.show(ex);
       $("live-status").textContent = "Done. The explanation is below.";
       $("stage").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
