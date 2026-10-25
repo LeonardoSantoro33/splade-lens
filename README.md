@@ -15,7 +15,7 @@ license: mit
 **An interactive tool that shows what SPLADE does to a query and a document: which terms it adds,
 which input word produced each term, and which terms the relevance score is made of.**
 
-Website: **[https://cobe-cpu.github.io/splade-lens/ — add the link once GitHub Pages is on]**
+Website: **[https://leonardosantoro33.github.io/splade-lens/](https://leonardosantoro33.github.io/splade-lens/)**
 
 ---
 
