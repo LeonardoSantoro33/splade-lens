@@ -218,14 +218,14 @@ footer a, .byline { overflow-wrap: anywhere; }
     <p class="intro">For every query, a search engine gives each document a score and shows the documents with the highest scores first. The score is SPLADE's estimate of how relevant a document is to the query, so it decides which documents you see and in what order.</p>
     <div class="formula">score(query, document) = SPLADE(query) · SPLADE(document)</div>
     <p class="intro">In practice, it is the sum over the terms that the query and the document share of query weight × document weight. Each band below is one of these products, drawn from the query word that produced the term to the document word that produced it.</p>
-    <p class="verdict" id="verdict"></p>
-    <div class="split" id="split" role="img"></div>
-    <div class="split-legend"><span>written in both texts</span><span>added by SPLADE</span></div>
-    <div class="flow-box" id="flow"></div>
     <p class="steplabel" style="margin-top:28px">Which words of the document matter most to SPLADE (darker = more weight):</p>
     <div class="tokens doctext" id="d-tokens"></div>
     <p class="caption" id="d-caption" aria-live="polite">Point at a word to see which terms it produces.</p>
-    <details>
+    <p class="verdict" id="verdict" style="margin-top:34px"></p>
+    <div class="split" id="split" role="img"></div>
+    <div class="split-legend"><span>written in both texts</span><span>added by SPLADE</span></div>
+    <div class="flow-box" id="flow"></div>
+    <details style="margin-top:22px">
       <summary>All matching terms</summary>
       <table id="match-table"></table>
     </details>
