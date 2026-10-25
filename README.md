@@ -133,6 +133,8 @@ expansion, and measures this on test collections with relevance judgements.
 
 ## Limitations
 
+The in-browser model is an 8-bit quantised ONNX export. On 3 test texts its top-20 terms matched PyTorch on 14/20, 20/20 and 17/20 positions, with a largest SPLADE weight difference of 0.7048. The full-precision ONNX export matched on 20/20 for all three, with a largest difference of 1.218e-05. The examples on the site are computed in PyTorch.
+
 - Terms are WordPiece entries of the BERT vocabulary (`##` marks a word piece), so one word can be
   several terms.
 - The default model is trained on English (MS MARCO).
