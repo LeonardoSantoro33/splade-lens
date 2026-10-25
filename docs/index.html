@@ -138,7 +138,10 @@ footer a, .byline { overflow-wrap: anywhere; }
 .live .go { margin-top: 12px; font: inherit; font-weight: 600; cursor: pointer; padding: 8px 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--paper); }
 .live .go:disabled { opacity: .55; cursor: progress; }
 .live .status { color: var(--muted); font-size: .95rem; margin: 10px 0 0; min-height: 1.4em; }
-.picker button.own { border-style: dashed; }
+.picker button.own { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: #fff; background: var(--exact); border-color: var(--exact); box-shadow: 0 1px 5px rgba(31, 79, 184, .35); }
+.picker button.own:hover { filter: brightness(1.12); }
+.picker button.own[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(31, 79, 184, .25); }
+.picker button.own[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); box-shadow: none; }
 .live:not([hidden]) { animation: pop .25s ease-out; }
 @keyframes pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .live:not([hidden]) { animation: none; } }
@@ -431,7 +434,7 @@ footer a, .byline { overflow-wrap: anywhere; }
 
   function renderPicker() {
     $("picker").innerHTML = D.examples.map((ex, i) => ex.id === "custom" ? "" : `<button type="button" aria-pressed="false" data-i="${i}">${esc(ex.query.text)}</button>`).join("") +
-      (D.browser_model ? `<button type="button" class="own" aria-expanded="false" id="own-btn">Try your own text</button>` : "");
+      (D.browser_model ? `<button type="button" class="own" aria-expanded="false" id="own-btn"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Try your own text</button>` : "");
   }
   renderPicker();
   $("picker").addEventListener("click", (e) => {
