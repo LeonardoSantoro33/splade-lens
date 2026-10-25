@@ -58,7 +58,8 @@ h1 { font-size: clamp(2.6rem, 6vw, 4rem); line-height: 1.02; margin: 0; font-wei
 .byline { color: var(--muted); font-size: .95rem; margin-top: 18px; }
 
 /* ---------- sections ---------- */
-section { padding-top: 56px; padding-bottom: 8px; }
+/* every block is separated from the previous one by the same black rule as the first */
+section { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 22px; padding-bottom: 8px; }
 h2 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 10px; font-weight: 600; letter-spacing: -0.01em; }
 .intro { max-width: var(--measure); color: var(--ink); margin: 0 0 24px; }
 .note { max-width: var(--measure); color: var(--muted); font-style: italic; margin: 8px 0 0; }
@@ -113,9 +114,8 @@ h2 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 10px; font-weight: 600; l
 .flow-term { font-family: var(--mono); font-size: 13px; }
 .flow-label, .flow-term { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
 #docstage { margin-top: 48px; }
-.doc-big .tok { font-size: clamp(1.05rem, 2vw, 1.3rem); cursor: default; }
+.doc-big .tok { font-size: clamp(1.05rem, 2vw, 1.3rem); }
 .doc-big .tok.special { font-size: .8em; }
-.doc-big .tok:hover, .doc-big .tok:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .caption .term { cursor: auto; font-size: .95em; }
 table { border-collapse: collapse; width: 100%; font-size: .95rem; margin-top: 20px; }
 th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
@@ -198,7 +198,7 @@ footer a, .byline { overflow-wrap: anywhere; }
   </div>
 
   <div class="stage" id="stage">
-    <h2>How the query vector is expanded</h2>
+    <h2>1. How the query vector is expanded</h2>
     <p class="steplabel" style="margin-top:18px">The query, as SPLADE reads it:</p>
     <div class="qwrap" id="q-wrap">
       <div class="tokens query-big" id="q-tokens"></div>
@@ -215,7 +215,7 @@ footer a, .byline { overflow-wrap: anywhere; }
   </div>
 
   <div class="stage" id="docstage">
-    <h2>How the document vector is expanded</h2>
+    <h2>2. How the document vector is expanded</h2>
     <p class="steplabel" style="margin-top:18px">The document, as SPLADE reads it:</p>
     <div class="qwrap" id="d-wrap">
       <div class="tokens doc-big" id="d-tokens"></div>
@@ -228,11 +228,10 @@ footer a, .byline { overflow-wrap: anywhere; }
     </div>
     <p class="caption" id="d-caption" aria-live="polite"></p>
     <div class="legend"><span><span class="key exact">term</span> written in the document</span><span><span class="key exp">term</span> added by SPLADE</span></div>
-    <p class="note">Point at a word of the document to see which terms it produces.</p>
   </div>
 
   <section id="score">
-    <h2>Where the score with the document comes from</h2>
+    <h2>3. Where the score with the document comes from</h2>
     <p class="intro">For every query, a search engine gives each document a score and shows the documents with the highest scores first. The score is SPLADE's estimate of how relevant a document is to the query, so it decides which documents you see and in what order.</p>
     <div class="formula">score(query, document) = SPLADE(query) · SPLADE(document)</div>
     <p class="intro">In practice, it is the sum over the terms that the query and the document share of query weight × document weight. Each band below is one of these products, drawn from the query word that produced the term to the document word that produced it.</p>
@@ -322,7 +321,7 @@ footer a, .byline { overflow-wrap: anywhere; }
       if (SPECIAL.has(t)) cls.push("special");
       let style = "";
       if (opts && opts.shade && w[i] > 0) style = ` style="background:rgba(31,79,184,${(0.08 + 0.5 * w[i] / max).toFixed(3)})"`;
-      const focus = opts && (opts.shade || opts.focus) ? ' tabindex="0"' : "";
+      const focus = opts && opts.shade ? ' tabindex="0"' : "";
       return `<span class="${cls.join(" ")}" data-pos="${i}"${style}${focus}>${esc(shown(t))}</span>`;
     }).join("");
   }
@@ -461,7 +460,7 @@ footer a, .byline { overflow-wrap: anywhere; }
   const DOC_TERMS = 60;
   function renderDocument(ex) {
     const d = ex.document;
-    $("d-tokens").innerHTML = tokenSpans(d, { focus: true });
+    $("d-tokens").innerHTML = tokenSpans(d);
     drawDocCallouts();
     const terms = d.terms.slice().sort((a, b) => b.w - a.w);
     const top = terms.slice(0, DOC_TERMS);
@@ -608,22 +607,6 @@ footer a, .byline { overflow-wrap: anywhere; }
     const more = ex.matches.length > N ? `<text class="flow-head" x="${colX[1]}" y="${top + H + 22}">${ex.matches.length - N} smaller terms not drawn</text>` : "";
     return `<svg viewBox="0 0 ${W} ${top + H + 32}" role="img" aria-label="Flow from query words to shared terms to document words, band width proportional to each term's contribution to the score">${heads}${links}${nodes}${more}</svg>`;
   }
-
-  // Which terms a document word produces (the terms whose weight was taken from that position).
-  function showProduced(pos) {
-    const doc = D.examples[current].document;
-    const tok = doc.tokens[pos];
-    const list = doc.terms.filter((t) => t.pos === pos).sort((a, b) => b.w - a.w);
-    const word = SPECIAL.has(tok) ? tok : shown(tok);
-    if (!list.length) { $("d-caption").innerHTML = `<b>${esc(word)}</b> produces no terms.`; return; }
-    const shownTerms = list.slice(0, 12).map((t) => `<span class="term${t.in_input ? "" : " exp"}">${esc(t.term)}</span> (${fmt(t.w, t.w < 0.01 ? 3 : 2)})`).join(", ");
-    const more = list.length > 12 ? `, and ${list.length - 12} smaller` : "";
-    $("d-caption").innerHTML = `<b>${esc(word)}</b> produces ${list.length} term${list.length > 1 ? "s" : ""}: ${shownTerms}${more}.`;
-  }
-  ["mouseover", "focusin"].forEach((ev) => $("d-tokens").addEventListener(ev, (e) => {
-    const sp = e.target.closest(".tok");
-    if (sp) showProduced(+sp.dataset.pos);
-  }));
 
   // ---------- compare ----------
   function renderCompare(k) {
