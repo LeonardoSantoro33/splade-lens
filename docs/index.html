@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPLADE lens</title>
+<meta name="description" content="See which terms SPLADE adds to a text, which word each one comes from, and what a query–document score is made of.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #ffffff;
+  --ink: #18233b;
+  --muted: #5c6577;
+  --rule: #e4e7ee;
+  --soft: #f4f6fa;
+  --exact: #1f4fb8;
+  --exact-band: rgba(31, 79, 184, .42);
+  --hl: #ffd84d;
+  --hl-band: rgba(231, 180, 22, .62);
+  --hl-ink: #6b4f00;
+  --serif: "Source Serif 4", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --measure: none;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif); font-size: 1.0625rem; line-height: 1.6;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+a { color: var(--exact); text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--exact); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- header ---------- */
+header.top { padding-top: 64px; padding-bottom: 8px; }
+h1 { font-size: clamp(2.6rem, 6vw, 4rem); line-height: 1.02; margin: 0; font-weight: 700; letter-spacing: -0.02em; }
+.lede { font-size: 1.3rem; line-height: 1.45; margin: 18px 0 0; color: var(--ink); }
+.byline { color: var(--muted); font-size: .95rem; margin-top: 18px; }
+
+/* ---------- sections ---------- */
+section { padding-top: 56px; padding-bottom: 8px; }
+h2 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 10px; font-weight: 600; letter-spacing: -0.01em; }
+.intro { max-width: var(--measure); color: var(--ink); margin: 0 0 24px; }
+.note { max-width: var(--measure); color: var(--muted); font-style: italic; margin: 8px 0 0; }
+
+/* ---------- example picker ---------- */
+.picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 0; }
+.picker button {
+  font: inherit; font-size: .98rem; cursor: pointer; padding: 6px 14px;
+  border: 1px solid var(--rule); background: var(--paper); color: var(--ink); border-radius: 999px;
+}
+.picker button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---------- the vector piece (hero) ---------- */
+.stage { margin-top: 28px; border-top: 2px solid var(--ink); padding-top: 22px; }
+.rowlabel { color: var(--muted); font-size: .95rem; margin: 0 0 6px; }
+.steplabel { color: var(--ink); font-size: 1.2rem; font-weight: 600; margin: 0 0 8px; }
+.tokens { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 0; }
+.tok { font-family: var(--mono); padding: 1px 3px; margin-left: .45em; border-radius: 3px; transition: background-color .15s; }
+.tok.cont { margin-left: 0; }
+.tok.special { color: var(--muted); font-size: .8em; }
+.query-big .tok { font-size: clamp(1.4rem, 3.4vw, 2.2rem); }
+.tok.lit { background: var(--ink); color: var(--paper); }
+.qwrap { position: relative; }
+.callouts { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; pointer-events: none; }
+.callouts text { font-family: var(--serif); font-size: 15px; fill: var(--muted); }
+.callouts text tspan.tok-name { font-family: var(--mono); fill: var(--ink); }
+.callouts path { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+.vwrap { position: relative; }
+.vector { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 18px; }
+.term {
+  font-family: var(--mono); line-height: 1.15; cursor: default; padding: 0 3px; border-radius: 2px;
+  color: var(--exact); background: none; border: 0;
+}
+.term.exp { color: var(--ink); background: var(--hl); }
+.term:hover, .term:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.caption { min-height: 1.6em; margin: 18px 0 0; color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 18px; color: var(--muted); font-size: .95rem; margin-top: 10px; }
+.key { font-family: var(--mono); padding: 0 4px; border-radius: 2px; }
+.key.exact { color: var(--exact); }
+.key.exp { background: var(--hl); color: var(--ink); }
+
+/* ---------- score ---------- */
+.verdict { font-size: 1.25rem; max-width: var(--measure); margin: 0 0 14px; }
+.split { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--soft); }
+.split .a { background: var(--exact); }
+.split .b { background: var(--hl); }
+.split-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: .9rem; margin-top: 4px; }
+.flow-box { overflow-x: auto; margin: 26px 0 0; }
+.flow-box svg { display: block; min-width: 640px; width: 100%; height: auto; }
+.flow-head { font-family: var(--serif); font-size: 14px; fill: var(--muted); }
+.flow-label { font-family: var(--mono); font-size: 13px; fill: var(--ink); }
+.flow-term { font-family: var(--mono); font-size: 13px; }
+.flow-label, .flow-term { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.doctext { margin-top: 18px; font-size: .95rem; }
+.doctext .tok { margin-left: .4em; cursor: default; }
+.doctext .tok:hover, .doctext .tok:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.caption .term { cursor: auto; font-size: .95em; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; margin-top: 20px; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td .term { cursor: auto; }
+details { margin-top: 18px; }
+summary { cursor: pointer; color: var(--exact); }
+
+/* ---------- compare ---------- */
+.docs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
+.doccard { border-top: 2px solid var(--rule); padding-top: 10px; }
+.doccard.win { border-top-color: var(--ink); }
+.doccard h3 { margin: 0 0 6px; font-size: 1.05rem; font-weight: 600; }
+.doccard .score { font-size: 2rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.doccard p { margin: 6px 0 0; font-size: .97rem; }
+.diff svg { display: block; width: 100%; height: auto; margin-top: 18px; }
+.diff-label { font-family: var(--mono); font-size: 13px; fill: var(--ink); }
+.diff-axis { font-family: var(--serif); font-size: 13px; fill: var(--muted); }
+
+/* ---------- findings / how ---------- */
+.formula { font-family: var(--mono); font-size: 1.05rem; background: var(--soft); padding: 14px 18px; border-radius: 4px; display: inline-block; margin: 6px 0 14px; }
+.prose p { max-width: var(--measure); }
+.prose ul { max-width: var(--measure); padding-left: 1.2em; }
+.prose ol.steps { padding-left: 1.4em; }
+.prose ol.steps li { margin: 6px 0; }
+table.example { width: auto; min-width: 560px; margin-top: 4px; }
+table.example th, table.example td { text-align: center; padding: 6px 12px; font-family: var(--mono); font-size: .9rem; }
+table.example th:first-child, table.example td:first-child { text-align: left; font-family: var(--serif); }
+table.example .win { background: var(--hl); color: var(--ink); font-weight: 600; }
+footer { margin-top: 64px; padding-top: 28px; padding-bottom: 48px; border-top: 1px solid var(--rule); color: var(--muted); font-size: .92rem; }
+footer p { margin: 6px 0; }
+footer a, .byline { overflow-wrap: anywhere; }
+.empty { color: var(--muted); }
+.live { margin-top: 22px; padding: 18px 20px; background: var(--soft); border-radius: 6px; }
+.live label { display: block; color: var(--muted); font-size: .95rem; margin: 10px 0 4px; }
+.live textarea { width: 100%; font: inherit; font-size: 1rem; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); resize: vertical; }
+.live .go { margin-top: 12px; font: inherit; font-weight: 600; cursor: pointer; padding: 8px 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--paper); }
+.live .go:disabled { opacity: .55; cursor: progress; }
+.live .status { color: var(--muted); font-size: .95rem; margin: 10px 0 0; min-height: 1.4em; }
+.picker button.own { border-style: dashed; }
+
+@media (max-width: 720px) {
+  header.top { padding-top: 40px; }
+  .wrap { padding: 0 16px; }
+  .docs2 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .tok { transition: none; } }
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <h1>SPLADE lens</h1>
+  <p class="lede">See which words SPLADE adds to a text, and where they come from.</p>
+  <p class="byline" id="byline"></p>
+</header>
+
+<main class="wrap">
+  <div class="picker" role="group" aria-label="Choose an example" id="picker"></div>
+  <div class="live" id="live" hidden>
+    <p style="margin:0">Write a query and a document. SPLADE runs in your browser: the first time it downloads <span id="live-size">about 110 MB</span>, then it stays in the browser's cache.</p>
+    <label for="live-q">Query</label>
+    <textarea id="live-q" rows="2">what causes tiredness</textarea>
+    <label for="live-d">Document</label>
+    <textarea id="live-d" rows="4">Low levels of iron in the blood can leave you feeling weak and exhausted.</textarea>
+    <button type="button" class="go" id="live-go">Explain</button>
+    <p class="status" id="live-status" aria-live="polite"></p>
+  </div>
+
+  <div class="stage" id="stage">
+    <h2>How the query vector is expanded</h2>
+    <p class="steplabel" style="margin-top:18px">The query, as SPLADE reads it:</p>
+    <div class="qwrap" id="q-wrap">
+      <div class="tokens query-big" id="q-tokens"></div>
+      <svg class="callouts" id="q-callouts" aria-hidden="true"></svg>
+    </div>
+    <p class="steplabel" style="margin-top:28px">Its SPLADE vector, each term sized by its weight:</p>
+    <div class="vwrap" id="v-wrap">
+      <div class="vector" id="q-vector"></div>
+      <svg class="callouts" id="v-callout" aria-hidden="true"></svg>
+    </div>
+    <p class="caption" id="caption" aria-live="polite"></p>
+    <div class="legend"><span><span class="key exact">term</span> written in the query</span><span><span class="key exp">term</span> added by SPLADE</span></div>
+    <p class="note" id="ex-note"></p>
+  </div>
+
+  <section id="score">
+    <h2>Where the score comes from</h2>
+    <p class="intro">For every query, a search engine gives each document a score and shows the documents with the highest scores first. The score is SPLADE's estimate of how relevant a document is to the query, so it decides which documents you see and in what order.</p>
+    <div class="formula">score(query, document) = SPLADE(query) · SPLADE(document)</div>
+    <p class="intro">In practice, it is the sum over the terms that the query and the document share of query weight × document weight. Each band below is one of these products, drawn from the query word that produced the term to the document word that produced it.</p>
+    <p class="verdict" id="verdict"></p>
+    <div class="split" id="split" role="img"></div>
+    <div class="split-legend"><span>written in both texts</span><span>added by SPLADE</span></div>
+    <div class="flow-box" id="flow"></div>
+    <p class="steplabel" style="margin-top:28px">Which words of the document matter most to SPLADE (darker = more weight):</p>
+    <div class="tokens doctext" id="d-tokens"></div>
+    <p class="caption" id="d-caption" aria-live="polite">Point at a word to see which terms it produces.</p>
+    <details>
+      <summary>All matching terms</summary>
+      <table id="match-table"></table>
+    </details>
+  </section>
+
+  <section id="compare">
+    <h2>Why one document ranks above another</h2>
+    <p class="intro">The same query, two documents. Bars to the left are terms that give document A more score than B; bars to the right do the opposite, as in the cards above.</p>
+    <div class="picker" role="group" aria-label="Choose a comparison" id="picker2"></div>
+    <p class="rowlabel" style="margin-top:22px">Query: <span id="c-query" style="font-family:var(--mono);color:var(--ink)"></span></p>
+    <div class="docs2" id="c-docs"></div>
+    <div class="diff" id="c-diff"></div>
+  </section>
+
+  <section id="findings" hidden>
+    <h2>On real data</h2>
+    <p class="intro">The same decomposition, run over every judged-relevant (query, document) pair of public test collections.</p>
+    <table id="findings-table"></table>
+    <p class="note">Numbers from <code>analyze.py</code>; one row per collection.</p>
+  </section>
+
+  <section id="how" class="prose">
+    <h2>How it works</h2>
+    <p>SPLADE turns a text into a vector with one weight for each of the 30,522 entries of the BERT vocabulary:</p>
+    <div class="formula">w<sub>j</sub> = max<sub>i</sub> log(1 + relu(logit<sub>ij</sub>))</div>
+    <p>Read it from the inside out:</p>
+    <ol class="steps">
+      <li><b>logit<sub>ij</sub></b>: for every position <i>i</i> of the text and every vocabulary entry <i>j</i>, the model gives a score of how well <i>j</i> fits at that position, given the whole text. This is where expansion comes from: at the position of <i>iron</i>, entries such as <i>anemia</i> or <i>deficiency</i> can score high even though they are not in the text.</li>
+      <li><b>relu</b>: relu(x) = max(0, x), so negative scores become 0. Only the entries the model has evidence for survive, which is why the vector is mostly zeros.</li>
+      <li><b>log(1 + …)</b>: large values are compressed (1 becomes 0.69, 10 becomes 2.4), so a few terms cannot dominate all the others.</li>
+      <li><b>max<sub>i</sub></b>: each entry keeps its highest value over all positions. That value is its weight w<sub>j</sub>.</li>
+    </ol>
+    <p>For example, this is how well <i>anemia</i> fits at each position of the query (illustrative numbers):</p>
+    <div class="flow-box"><table class="example">
+      <thead><tr><th>word at that position</th><th>[CLS]</th><th>symptoms</th><th>of</th><th>low</th><th class="win">iron</th><th>[SEP]</th></tr></thead>
+      <tbody><tr><td>score of <i>anemia</i></td><td class="num">0.9</td><td class="num">0.3</td><td class="num">0</td><td class="num">0.4</td><td class="num win">1.6</td><td class="num">0.5</td></tr></tbody>
+    </table></div>
+    <p>The highest is 1.6, at the position of <i>iron</i>: so w<sub>anemia</sub> = 1.6, and <i>anemia</i> comes from <i>iron</i>.</p>
+    <p>Because SPLADE keeps the maximum, we're able to understand where each term's weight comes from. This is exact, not a guess. It tells you which word the weight was taken from, but not why the network gave it that weight.</p>
+    <p>Before SPLADE reads a text, the tokenizer adds two special tokens: <code>[CLS]</code> at the start and <code>[SEP]</code> at the end. They are not words, and through attention they read every word of the text. SPLADE takes the maximum over all positions, these two included, and uses them for terms about the text as a whole. Point at the terms in the examples above to see how many come from <code>[CLS]</code> rather than from a word.</p>
+    <p>A shared term counts as <em>written in both texts</em> when it appears in both the query and the document. Otherwise it counts as <em>added by SPLADE</em>: at least one of the two texts does not contain it, and it matches only because SPLADE added it. Terms are entries of BERT's vocabulary, which splits long words into pieces: <i>anemia</i>, for example, becomes <code>an</code> and <code>##emia</code>.</p>
+    <p>Everything on this page was computed in advance with <span id="model-name"></span>; the code to run it on your own texts, as a web app or from the command line, is on <a id="code-link" href="https://github.com/cobe-cpu/splade-lens">GitHub</a>.</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>The default model, <a href="https://huggingface.co/naver/splade-cocondenser-ensembledistil">naver/splade-cocondenser-ensembledistil</a> (Formal, Lassance, Piwowarski and Clinchant, SIGIR 2022), is distributed by its authors under CC BY-NC-SA 4.0. Code under the MIT licence.</p>
+  <p>Related: <a href="https://www.nathanleroy.dev/spladeviz/">SPLADE Visualizer</a> shows, in the browser, how a SPLADE vector is built for a single query.</p>
+  <p id="generated"></p>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  const D = window.SPLADE_DATA;
+  const $ = (id) => document.getElementById(id);
+  if (!D) {
+    $("stage").innerHTML = '<p class="empty">No data yet. Run <code>python export_site.py</code> to create <code>docs/data.js</code>.</p>';
+    return;
+  }
+  const SPECIAL = new Set(["[CLS]", "[SEP]", "[PAD]", "[UNK]", "[MASK]"]);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fmt = (x, d = 2) => Number(x).toFixed(d);
+  const pct = (x) => Math.round(100 * x) + "%";
+  const shown = (t) => (t.startsWith("##") ? t.slice(2) : t);
+
+  $("byline").textContent = `Model: ${D.model}`;
+  $("model-name").textContent = D.model;
+  $("generated").textContent = `Data computed on ${D.generated}, texts truncated at ${D.max_length} tokens.`;
+
+  function tokenSpans(rep, opts) {
+    const w = rep.weight_per_token;
+    const max = Math.max(...w, 1e-9);
+    return rep.tokens.map((t, i) => {
+      const cls = ["tok"];
+      if (t.startsWith("##")) cls.push("cont");
+      if (SPECIAL.has(t)) cls.push("special");
+      let style = "";
+      if (opts && opts.shade && w[i] > 0) style = ` style="background:rgba(31,79,184,${(0.08 + 0.5 * w[i] / max).toFixed(3)})"`;
+      const focus = opts && opts.shade ? ' tabindex="0"' : "";
+      return `<span class="${cls.join(" ")}" data-pos="${i}"${style}${focus}>${esc(shown(t))}</span>`;
+    }).join("");
+  }
+
+  // ---------- arrows pointing at [CLS] and [SEP] ----------
+  // [CLS] is always the first token, so its note goes above the query; [SEP] is always the last,
+  // so its note goes below. Arrows therefore never cross the words in between, at any width.
+  const NS = "http://www.w3.org/2000/svg";
+  const LINE = 20;
+  function makeLabel(svg, name, parts, width) {
+    const t = document.createElementNS(NS, "text");
+    const one = `<tspan class="tok-name">${name}</tspan> ${parts.join(" ")}`;
+    t.innerHTML = one;
+    svg.appendChild(t);
+    if (t.getBBox().width <= width) return { t, lines: 1, w: t.getBBox().width };
+    t.innerHTML = `<tspan class="tok-name">${name}</tspan> ${parts[0]}<tspan x="0" dy="${LINE}">${parts.slice(1).join(" ")}</tspan>`;
+    return { t, lines: 2, w: t.getBBox().width };
+  }
+  function place(lab, x, y) {
+    lab.t.setAttribute("x", x); lab.t.setAttribute("y", y);
+    lab.t.querySelectorAll("tspan[dy]").forEach((sp) => sp.setAttribute("x", x));
+  }
+  function arrow(svg, x1, y1, x2, y2) {
+    const p = document.createElementNS(NS, "path");
+    const my = (y1 + y2) / 2;
+    p.setAttribute("d", `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`);
+    p.setAttribute("marker-end", "url(#ah)");
+    svg.appendChild(p);
+  }
+  function drawCallouts() {
+    const wrap = $("q-wrap"), svg = $("q-callouts");
+    const toks = [...document.querySelectorAll("#q-tokens .tok")];
+    const cls = toks.find((t) => t.textContent === "[CLS]");
+    const sep = toks.slice().reverse().find((t) => t.textContent === "[SEP]");
+    svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" style="fill: var(--muted); stroke: none"/></marker></defs>';
+    wrap.style.paddingTop = "0px"; wrap.style.paddingBottom = "0px";
+    const width = wrap.getBoundingClientRect().width;
+    const labCls = cls ? makeLabel(svg, "[CLS]", ["is added by the tokenizer at the start,", "and reads the whole text"], width) : null;
+    const labSep = sep ? makeLabel(svg, "[SEP]", ["is added at the end,", "and reads the whole text too"], width) : null;
+    const gap = 26;                                         // room for the arrow
+    const top = labCls ? labCls.lines * LINE + gap : 0;
+    const bottom = labSep ? labSep.lines * LINE + gap : 0;
+    wrap.style.paddingTop = `${top}px`; wrap.style.paddingBottom = `${bottom}px`;
+    const W = wrap.getBoundingClientRect();
+    svg.setAttribute("height", W.height);
+    if (labCls) {
+      const r = cls.getBoundingClientRect();
+      const x = r.left - W.left + r.width / 2;
+      const tx = Math.max(0, Math.min(x - 18, width - labCls.w));
+      place(labCls, tx, 15);
+      const ax = Math.min(Math.max(x, tx + 10), tx + labCls.w - 10);
+      arrow(svg, ax, labCls.lines * LINE - 1, x, r.top - W.top - 4);
+    }
+    if (labSep) {
+      const r = sep.getBoundingClientRect();
+      const x = r.left - W.left + r.width / 2;
+      const tx = Math.max(0, Math.min(x + 18, width) - labSep.w);
+      const ty = W.height - labSep.lines * LINE + 11;
+      place(labSep, tx, ty);
+      const ax = Math.min(Math.max(x, tx + 10), tx + labSep.w - 10);
+      arrow(svg, ax, ty - 16, x, r.bottom - W.top + 4);
+    }
+  }
+  // Arrow from the right margin to the terms: "Point at a term to see where it comes from."
+  function drawVectorHint() {
+    const wrap = $("v-wrap"), svg = $("v-callout");
+    const terms = [...document.querySelectorAll("#q-vector .term")];
+    svg.innerHTML = '<defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" style="fill: var(--muted); stroke: none"/></marker></defs>';
+    wrap.style.paddingBottom = "0px";
+    if (!terms.length) return;
+    const t = document.createElementNS(NS, "text");
+    t.textContent = "Point at a term to see where it comes from.";
+    svg.appendChild(t);
+    const tw = t.getBBox().width;
+    let W = wrap.getBoundingClientRect();
+    const rel = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - W.left, r: r.right - W.left, t: r.top - W.top, b: r.bottom - W.top }; };
+    // the last row of terms is usually short: the note goes in the room to its right
+    const end = rel(terms[terms.length - 1]);
+    if (W.width - end.r >= tw + 70) {
+      const y = (end.t + end.b) / 2;
+      const tx = Math.min(W.width - tw, end.r + 130);       // keep the arrow short
+      t.setAttribute("x", tx); t.setAttribute("y", y + 5);
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", `M${tx - 8},${y} C${tx - 30},${y} ${end.r + 30},${y} ${end.r + 8},${y}`);
+      p.setAttribute("marker-end", "url(#ah2)");
+      svg.appendChild(p);
+      svg.setAttribute("height", W.height);
+    } else {
+      // narrow screens: the note goes under the terms, pointing up at the last one
+      wrap.style.paddingBottom = "46px";
+      W = wrap.getBoundingClientRect();
+      const last = rel(terms[terms.length - 1]);
+      const tx = Math.max(0, W.width - tw);
+      const ty = W.height - 6;
+      t.setAttribute("x", tx); t.setAttribute("y", ty);
+      const x = (last.l + last.r) / 2;
+      const ax = Math.min(Math.max(x, tx + 10), tx + tw - 10);
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", `M${ax},${ty - 17} C${ax},${(ty - 17 + last.b) / 2} ${x},${(ty - 17 + last.b) / 2} ${x},${last.b + 4}`);
+      p.setAttribute("marker-end", "url(#ah2)");
+      svg.appendChild(p);
+      svg.setAttribute("height", W.height);
+    }
+  }
+  window.addEventListener("resize", () => { drawCallouts(); drawVectorHint(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawCallouts(); drawVectorHint(); });
+
+  // ---------- hero: query vector ----------
+  let current = 0;
+  function renderExample(k) {
+    current = k;
+    const ex = D.examples[k];
+    const q = ex.query;
+    $("q-tokens").innerHTML = tokenSpans(q);
+    drawCallouts();
+    const maxw = Math.max(...q.terms.map((t) => t.w), 1e-9);
+    $("q-vector").innerHTML = q.terms.map((t) => {
+      const size = 0.85 + 1.9 * Math.sqrt(t.w / maxw);
+      return `<button type="button" class="term${t.in_input ? "" : " exp"}" style="font-size:${size.toFixed(2)}rem" data-pos="${t.pos}" data-w="${t.w}" data-term="${esc(t.term)}" data-in="${t.in_input}">${esc(t.term)}</button>`;
+    }).join("");
+    drawVectorHint();
+    $("caption").textContent = `${pct(q.expansion_weight_share)} of the total weight is on terms SPLADE added.`;
+    $("ex-note").textContent = ex.note || "";
+    renderScore(ex);
+    document.querySelectorAll("#picker button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === k)));
+  }
+  function lightSource(btn, on) {
+    const pos = btn.dataset.pos;
+    document.querySelectorAll("#q-tokens .tok").forEach((s) => s.classList.toggle("lit", on && s.dataset.pos === pos));
+    if (on) {
+      const tok = D.examples[current].query.tokens[+pos];
+      const how = btn.dataset.in === "true" ? "is written in the query" : "was added by SPLADE";
+      $("caption").innerHTML = `<b>${esc(btn.dataset.term)}</b> ${how} → its weight ${fmt(btn.dataset.w)} comes from the token <b>${esc(tok)}</b> (position ${pos}).`;
+    }
+  }
+  $("q-vector").addEventListener("mouseover", (e) => { const b = e.target.closest(".term"); if (b) lightSource(b, true); });
+  $("q-vector").addEventListener("focusin", (e) => { const b = e.target.closest(".term"); if (b) lightSource(b, true); });
+  $("q-vector").addEventListener("mouseleave", () => document.querySelectorAll("#q-tokens .tok").forEach((s) => s.classList.remove("lit")));
+
+  function renderPicker() {
+    $("picker").innerHTML = D.examples.map((ex, i) => `<button type="button" aria-pressed="false" data-i="${i}">${ex.id === "custom" ? "Your text: " : ""}${esc(ex.query.text)}</button>`).join("") +
+      (D.browser_model ? `<button type="button" class="own" aria-expanded="false" id="own-btn">Try your own text</button>` : "");
+  }
+  renderPicker();
+  $("picker").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.id === "own-btn") {
+      const open = $("live").hidden;
+      $("live").hidden = !open;
+      b.setAttribute("aria-expanded", String(open));
+      if (open) $("live-q").focus();
+      return;
+    }
+    renderExample(+b.dataset.i);
+  });
+  // Used by the in-browser model (module script below): show an explanation computed live.
+  window.SPLADE_UI = {
+    show(ex) {
+      const k = D.examples.findIndex((e) => e.id === "custom");
+      if (k >= 0) D.examples[k] = ex; else D.examples.push(ex);
+      renderPicker();
+      renderExample(D.examples.findIndex((e) => e.id === "custom"));
+      $("live").hidden = false;
+      const own = $("own-btn"); if (own) own.setAttribute("aria-expanded", "true");
+    },
+  };
+
+  // ---------- score decomposition ----------
+  function renderScore(ex) {
+    const exp = ex.expansion_score_share;
+    $("verdict").innerHTML = ex.matches.length
+      ? `Score <b>${fmt(ex.score)}</b> → <b>${pct(exp)}</b> of it comes from terms SPLADE added.`
+      : `Score <b>0</b>: the query and the document share no term.`;
+    $("split").innerHTML = `<div class="a" style="width:${100 * (1 - exp)}%"></div><div class="b" style="width:${100 * exp}%"></div>`;
+    $("split").setAttribute("aria-label", `${pct(1 - exp)} of the score from terms written in both texts, ${pct(exp)} from terms added by SPLADE`);
+    $("flow").innerHTML = flowSVG(ex);
+    $("d-tokens").innerHTML = tokenSpans(ex.document, { shade: true });
+    $("d-caption").textContent = "Point at a word to see which terms it produces.";
+    $("match-table").innerHTML = `<thead><tr><th>term</th><th class="num">query weight</th><th class="num">document weight</th><th class="num">product</th><th class="num">share</th><th>from (query → document)</th></tr></thead><tbody>` +
+      ex.matches.map((m) => `<tr><td><span class="term${m.kind === "exact" ? "" : " exp"}">${esc(m.term)}</span></td><td class="num">${fmt(m.qw)}</td><td class="num">${fmt(m.dw)}</td><td class="num">${fmt(m.c)}</td><td class="num">${(100 * m.share).toFixed(1)}%</td><td style="font-family:var(--mono)">${esc(ex.query.tokens[m.qpos])} → ${esc(ex.document.tokens[m.dpos])}</td></tr>`).join("") + "</tbody>";
+  }
+
+  function flowSVG(ex) {
+    const N = 12;
+    const ms = ex.matches.slice(0, N);
+    if (!ms.length) return "";
+    const W = 960, top = 36, gap = 6, minH = 2;
+    const total = ms.reduce((s, m) => s + m.c, 0);
+    const colX = [170, 455, 780], nodeW = 10;
+    // nodes per column
+    const left = [...new Set(ms.map((m) => m.qpos))].sort((a, b) => a - b);
+    const right = [...new Set(ms.map((m) => m.dpos))].sort((a, b) => a - b);
+    const mid = ms.map((_, i) => i);
+    const maxNodes = Math.max(left.length, right.length, mid.length);
+    const slot = 18;                       // minimum vertical room per node, so labels never overlap
+    const k = 300 / total;                 // the whole score is drawn as 300 px of band
+    function extent(keys, valueOf) {
+      return keys.map(valueOf).reduce((s, v) => s + Math.max(slot, Math.max(minH, v * k)), 0) + gap * (keys.length - 1);
+    }
+    const qv = (p) => ms.filter((m) => m.qpos === p).reduce((s, m) => s + m.c, 0);
+    const dv = (p) => ms.filter((m) => m.dpos === p).reduce((s, m) => s + m.c, 0);
+    const H = Math.max(extent(left, qv), extent(mid, (i) => ms[i].c), extent(right, dv));
+    function layout(keys, valueOf) {
+      const hs = keys.map(valueOf).map((v) => Math.max(minH, v * k));
+      const used = extent(keys, valueOf);
+      let y = top + (H - used) / 2;
+      const out = {};
+      keys.forEach((key, i) => {
+        const room = Math.max(slot, hs[i]);
+        out[key] = { y: y + (room - hs[i]) / 2, h: hs[i], off: 0 };
+        y += room + gap;
+      });
+      return out;
+    }
+    const L = layout(left, qv);
+    const M = layout(mid, (i) => ms[i].c);
+    const R = layout(right, dv);
+    const band = (x0, y0, x1, y1, h, color) => {
+      const xm = (x0 + x1) / 2;
+      return `<path d="M${x0},${y0} C${xm},${y0} ${xm},${y1} ${x1},${y1} L${x1},${y1 + h} C${xm},${y1 + h} ${xm},${y0 + h} ${x0},${y0 + h} Z" fill="${color}"/>`;
+    };
+    let links = "";
+    ms.forEach((m, i) => {
+      const h = Math.max(minH, m.c * k);
+      const color = m.kind === "exact" ? "var(--exact-band)" : "var(--hl-band)";
+      const a = L[m.qpos], b = M[i], c = R[m.dpos];
+      links += band(colX[0] + nodeW, a.y + a.off, colX[1], b.y, h, color);
+      links += band(colX[1] + nodeW, b.y, colX[2], c.y + c.off, h, color);
+      a.off += h; c.off += h;
+    });
+    let nodes = "";
+    const qt = ex.query.tokens, dt = ex.document.tokens;
+    left.forEach((p) => { const n = L[p]; nodes += `<rect x="${colX[0]}" y="${n.y}" width="${nodeW}" height="${n.h}" fill="var(--ink)"/><text class="flow-label" x="${colX[0] - 8}" y="${n.y + n.h / 2 + 4}" text-anchor="end">${esc(shown(qt[p]))}</text>`; });
+    mid.forEach((i) => {
+      const n = M[i], m = ms[i];
+      const exp = m.kind !== "exact";
+      nodes += `<rect x="${colX[1]}" y="${n.y}" width="${nodeW}" height="${n.h}" fill="${exp ? "#e7b416" : "var(--exact)"}"><title>${esc(m.term)}: ${fmt(m.qw)} × ${fmt(m.dw)} = ${fmt(m.c)} (${(100 * m.share).toFixed(1)}% of the score)</title></rect>`;
+      nodes += `<text class="flow-term" x="${colX[1] + nodeW + 6}" y="${n.y + n.h / 2 + 4}" fill="${exp ? "var(--hl-ink)" : "var(--exact)"}">${esc(m.term)} <tspan fill="var(--muted)">${(100 * m.share).toFixed(0)}%</tspan></text>`;
+    });
+    right.forEach((p) => { const n = R[p]; nodes += `<rect x="${colX[2]}" y="${n.y}" width="${nodeW}" height="${n.h}" fill="var(--ink)"/><text class="flow-label" x="${colX[2] + nodeW + 8}" y="${n.y + n.h / 2 + 4}">${esc(shown(dt[p]))}</text>`; });
+    const cx = colX[1] + nodeW / 2, half = 46;          // "shared term" is centred on its column
+    const heads = `<defs><marker id="ahf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9" fill="var(--muted)"/></marker></defs>` +
+      `<text class="flow-head" x="${colX[0] + nodeW}" y="18" text-anchor="end">query word</text>` +
+      `<text class="flow-head" x="${cx}" y="18" text-anchor="middle">shared term</text>` +
+      `<text class="flow-head" x="${colX[2]}" y="18">document word</text>` +
+      `<line x1="${colX[0] + nodeW + 10}" y1="13" x2="${cx - half - 8}" y2="13" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#ahf)"/>` +
+      `<line x1="${colX[2] - 10}" y1="13" x2="${cx + half + 8}" y2="13" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#ahf)"/>`;
+    const more = ex.matches.length > N ? `<text class="flow-head" x="${colX[1]}" y="${top + H + 22}">${ex.matches.length - N} smaller terms not drawn</text>` : "";
+    return `<svg viewBox="0 0 ${W} ${top + H + 32}" role="img" aria-label="Flow from query words to shared terms to document words, band width proportional to each term's contribution to the score">${heads}${links}${nodes}${more}</svg>`;
+  }
+
+  // Which terms a document word produces (the terms whose weight was taken from that position).
+  function showProduced(pos) {
+    const doc = D.examples[current].document;
+    const tok = doc.tokens[pos];
+    const list = doc.terms.filter((t) => t.pos === pos).sort((a, b) => b.w - a.w);
+    const word = SPECIAL.has(tok) ? tok : shown(tok);
+    if (!list.length) { $("d-caption").innerHTML = `<b>${esc(word)}</b> produces no terms.`; return; }
+    const shownTerms = list.slice(0, 12).map((t) => `<span class="term${t.in_input ? "" : " exp"}">${esc(t.term)}</span> (${fmt(t.w, t.w < 0.01 ? 3 : 2)})`).join(", ");
+    const more = list.length > 12 ? `, and ${list.length - 12} smaller` : "";
+    $("d-caption").innerHTML = `<b>${esc(word)}</b> produces ${list.length} term${list.length > 1 ? "s" : ""}: ${shownTerms}${more}.`;
+  }
+  ["mouseover", "focusin"].forEach((ev) => $("d-tokens").addEventListener(ev, (e) => {
+    const sp = e.target.closest(".tok");
+    if (sp) showProduced(+sp.dataset.pos);
+  }));
+
+  // ---------- compare ----------
+  function renderCompare(k) {
+    const c = D.comparisons[k];
+    $("c-query").textContent = c.query;
+    const card = (lab, e, other) => `<div class="doccard${e.score > other.score ? " win" : ""}"><h3>Document ${lab}${e.score > other.score ? ", ranked first" : ""}</h3><div class="score">${fmt(e.score)}</div><p>${esc(e.document.text)}</p><p class="rowlabel" style="margin-top:8px">${pct(e.expansion_score_share)} of its score comes from the terms SPLADE added</p></div>`;
+    $("c-docs").innerHTML = card("A", c.a, c.b) + card("B", c.b, c.a);
+    const rows = c.diff.slice(0, 12);
+    const W = 820, rowH = 26, top = 30, mid = 410, half = 300;
+    const maxd = Math.max(...rows.map((r) => Math.abs(r.a - r.b)), 1e-9);
+    let s = `<text class="diff-axis" x="${mid - 6}" y="16" text-anchor="end">favours A</text><text class="diff-axis" x="${mid + 6}" y="16">favours B</text><line x1="${mid}" x2="${mid}" y1="22" y2="${top + rows.length * rowH}" stroke="var(--ink)"/>`;
+    rows.forEach((r, i) => {
+      const d = r.a - r.b, w = half * Math.abs(d) / maxd, y = top + i * rowH;
+      const forA = d >= 0;                       // A is drawn on the left, like its card
+      const x = forA ? mid - w : mid;
+      s += `<rect x="${x}" y="${y + 5}" width="${Math.max(w, 1)}" height="${rowH - 10}" fill="${forA ? "var(--ink)" : "var(--muted)"}"><title>${esc(r.term)}: A ${fmt(r.a)}, B ${fmt(r.b)}</title></rect>`;
+      s += `<text class="diff-label" x="${forA ? mid + 8 : mid - 8}" y="${y + rowH / 2 + 4}" text-anchor="${forA ? "start" : "end"}">${esc(r.term)}</text>`;
+    });
+    $("c-diff").innerHTML = rows.length ? `<svg viewBox="0 0 ${W} ${top + rows.length * rowH + 8}" role="img" aria-label="Terms ordered by how much they separate the two documents">${s}</svg>` : "";
+    document.querySelectorAll("#picker2 button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === k)));
+  }
+  if (D.comparisons.length) {
+    $("picker2").innerHTML = D.comparisons.map((c, i) => `<button type="button" aria-pressed="false" data-i="${i}">${esc(c.query)}: ${esc(c.a.document.text.split(" ").slice(0, 3).join(" "))}… vs ${esc(c.b.document.text.split(" ").slice(0, 3).join(" "))}…</button>`).join("");
+    $("picker2").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) renderCompare(+b.dataset.i); });
+    renderCompare(0);
+  } else {
+    $("compare").hidden = true;
+  }
+
+  // ---------- findings ----------
+  if (D.findings && D.findings.length) {
+    $("findings").hidden = false;
+    $("findings-table").innerHTML = `<thead><tr><th>collection</th><th class="num">pairs</th><th class="num">score from added terms (mean / median)</th><th class="num">pairs where added terms give over half the score</th><th class="num">query weight on added terms</th><th>added terms that match most often</th></tr></thead><tbody>` +
+      D.findings.map((f) => `<tr><td>${esc(f.name)}</td><td class="num">${f.pairs}</td><td class="num">${pct(f.expansion_share_mean)} / ${pct(f.expansion_share_median)}</td><td class="num">${f.majority_expansion} (${pct(f.majority_expansion / f.pairs)})</td><td class="num">${pct(f.query_expansion_weight_mean)}</td><td style="font-family:var(--mono);font-size:.88rem">${f.top_expansion_terms.slice(0, 8).map(esc).join(", ")}</td></tr>`).join("") + "</tbody>";
+  }
+
+  if (D.examples.length) renderExample(0);
+})();
+</script>
+<script type="module">
+import { encode, explain } from "./splade-core.js";
+const D = window.SPLADE_DATA;
+const $ = (id) => document.getElementById(id);
+if (D && D.browser_model) {
+  const LIB = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+  const dtype = D.browser_dtype || "q8";
+  if (D.browser_model_mb) $("live-size").textContent = `about ${D.browser_model_mb} MB`;
+  let tok = null, model = null;
+  async function load() {
+    const { AutoTokenizer, AutoModelForMaskedLM } = await import(LIB);
+    const progress = (p) => {
+      if (p.status === "progress" && p.file && p.file.endsWith(".onnx")) $("live-status").textContent = `Downloading SPLADE: ${Math.round(p.progress)}%`;
+    };
+    $("live-status").textContent = "Loading SPLADE…";
+    tok = await AutoTokenizer.from_pretrained(D.browser_model);
+    model = await AutoModelForMaskedLM.from_pretrained(D.browser_model, { dtype, progress_callback: progress });
+  }
+  $("live-go").addEventListener("click", async () => {
+    const qt = $("live-q").value, dt = $("live-d").value;
+    if (!qt.trim() || !dt.trim()) { $("live-status").textContent = "Write both a query and a document."; return; }
+    $("live-go").disabled = true;
+    try {
+      if (!model) await load();
+      $("live-status").textContent = "Computing…";
+      const q = await encode(tok, model, qt, D.max_length);
+      const d = await encode(tok, model, dt, D.max_length);
+      d.terms = d.all.map((t) => ({ term: t.term, w: t.w, pos: t.pos, in_input: t.in_input }));   // all terms, for the hover
+      const ex = { id: "custom", note: `Computed in your browser with ${D.browser_model} (${dtype}); numbers can differ slightly from the precomputed examples.`, ...explain(q, d) };
+      window.SPLADE_UI.show(ex);
+      $("live-status").textContent = "Done. The explanation is below.";
+      $("stage").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    } catch (err) {
+      $("live-status").textContent = `SPLADE could not run here (${err.message}). The precomputed examples still work.`;
+    } finally {
+      $("live-go").disabled = false;
+    }
+  });
+}
+</script>
+</body>
+</html>
