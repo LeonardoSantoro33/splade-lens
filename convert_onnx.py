@@ -42,7 +42,7 @@ tags: [splade, learned-sparse-retrieval, onnx]
 ONNX export of [{base}](https://huggingface.co/{base}) for use in the browser with
 [transformers.js](https://huggingface.co/docs/transformers.js): `onnx/model_quantized.onnx` (8-bit
 dynamic quantisation) and, if present, `onnx/model.onnx` (full precision). Made for
-[SPLADE lens](https://github.com/cobe-cpu/splade-lens).
+[SPLADE lens](https://github.com/leonardosantoro33/splade-lens).
 
 The weights are those of the original model, converted without retraining. The original model is
 described in T. Formal, C. Lassance, B. Piwowarski, S. Clinchant, *From Distillation to Hard

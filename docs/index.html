@@ -281,7 +281,7 @@ footer a, .byline { overflow-wrap: anywhere; }
     <p>Because SPLADE keeps the maximum, we're able to understand where each term's weight comes from. This is exact, not a guess. It tells you which word the weight was taken from, but not why the network gave it that weight.</p>
     <p>Before SPLADE reads a text, the tokenizer adds two special tokens: <code>[CLS]</code> at the start and <code>[SEP]</code> at the end. They are not words, and through attention they read every word of the text. SPLADE takes the maximum over all positions, these two included, and uses them for terms about the text as a whole. Point at the terms in the examples above to see how many come from <code>[CLS]</code> rather than from a word.</p>
     <p>A shared term counts as <em>written in both texts</em> when it appears in both the query and the document. Otherwise it counts as <em>added by SPLADE</em>: at least one of the two texts does not contain it, and it matches only because SPLADE added it. Terms are entries of BERT's vocabulary, which splits long words into pieces: <i>anemia</i>, for example, becomes <code>an</code> and <code>##emia</code>.</p>
-    <p>Everything on this page was computed in advance with <span id="model-name"></span>; the code to run it on your own texts, as a web app or from the command line, is on <a id="code-link" href="https://github.com/cobe-cpu/splade-lens">GitHub</a>.</p>
+    <p>Everything on this page was computed in advance with <span id="model-name"></span>; the code to run it on your own texts, as a web app or from the command line, is on <a id="code-link" href="https://github.com/leonardosantoro33/splade-lens">GitHub</a>.</p>
   </section>
 </main>
 
