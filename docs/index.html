@@ -112,9 +112,10 @@ h2 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 10px; font-weight: 600; l
 .flow-label { font-family: var(--mono); font-size: 13px; fill: var(--ink); }
 .flow-term { font-family: var(--mono); font-size: 13px; }
 .flow-label, .flow-term { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
-.doctext { margin-top: 18px; font-size: .95rem; }
-.doctext .tok { margin-left: .4em; cursor: default; }
-.doctext .tok:hover, .doctext .tok:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+#docstage { margin-top: 48px; }
+.doc-big .tok { font-size: clamp(1.05rem, 2vw, 1.3rem); cursor: default; }
+.doc-big .tok.special { font-size: .8em; }
+.doc-big .tok:hover, .doc-big .tok:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .caption .term { cursor: auto; font-size: .95em; }
 table { border-collapse: collapse; width: 100%; font-size: .95rem; margin-top: 20px; }
 th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
@@ -213,15 +214,29 @@ footer a, .byline { overflow-wrap: anywhere; }
     <p class="note" id="ex-note"></p>
   </div>
 
+  <div class="stage" id="docstage">
+    <h2>How the document vector is expanded</h2>
+    <p class="steplabel" style="margin-top:18px">The document, as SPLADE reads it:</p>
+    <div class="qwrap" id="d-wrap">
+      <div class="tokens doc-big" id="d-tokens"></div>
+      <svg class="callouts" id="d-callouts" aria-hidden="true"></svg>
+    </div>
+    <p class="steplabel" style="margin-top:28px">Its SPLADE vector, each term sized by its weight:</p>
+    <div class="vwrap" id="dv-wrap">
+      <div class="vector" id="d-vector"></div>
+      <svg class="callouts" id="dv-callout" aria-hidden="true"></svg>
+    </div>
+    <p class="caption" id="d-caption" aria-live="polite"></p>
+    <div class="legend"><span><span class="key exact">term</span> written in the document</span><span><span class="key exp">term</span> added by SPLADE</span></div>
+    <p class="note">Point at a word of the document to see which terms it produces.</p>
+  </div>
+
   <section id="score">
     <h2>Where the score with the document comes from</h2>
     <p class="intro">For every query, a search engine gives each document a score and shows the documents with the highest scores first. The score is SPLADE's estimate of how relevant a document is to the query, so it decides which documents you see and in what order.</p>
     <div class="formula">score(query, document) = SPLADE(query) · SPLADE(document)</div>
     <p class="intro">In practice, it is the sum over the terms that the query and the document share of query weight × document weight. Each band below is one of these products, drawn from the query word that produced the term to the document word that produced it.</p>
-    <p class="steplabel" style="margin-top:28px">Which words of the document matter most to SPLADE (darker = more weight):</p>
-    <div class="tokens doctext" id="d-tokens"></div>
-    <p class="caption" id="d-caption" aria-live="polite">Point at a word to see which terms it produces.</p>
-    <p class="verdict" id="verdict" style="margin-top:34px"></p>
+    <p class="verdict" id="verdict"></p>
     <div class="split" id="split" role="img"></div>
     <div class="split-legend"><span>written in both texts</span><span>added by SPLADE</span></div>
     <div class="flow-box" id="flow"></div>
@@ -285,6 +300,7 @@ footer a, .byline { overflow-wrap: anywhere; }
   const $ = (id) => document.getElementById(id);
   if (!D) {
     $("stage").innerHTML = '<p class="empty">No data yet. Run <code>python export_site.py</code> to create <code>docs/data.js</code>.</p>';
+    $("docstage").hidden = true;
     return;
   }
   const SPECIAL = new Set(["[CLS]", "[SEP]", "[PAD]", "[UNK]", "[MASK]"]);
@@ -306,7 +322,7 @@ footer a, .byline { overflow-wrap: anywhere; }
       if (SPECIAL.has(t)) cls.push("special");
       let style = "";
       if (opts && opts.shade && w[i] > 0) style = ` style="background:rgba(31,79,184,${(0.08 + 0.5 * w[i] / max).toFixed(3)})"`;
-      const focus = opts && opts.shade ? ' tabindex="0"' : "";
+      const focus = opts && (opts.shade || opts.focus) ? ' tabindex="0"' : "";
       return `<span class="${cls.join(" ")}" data-pos="${i}"${style}${focus}>${esc(shown(t))}</span>`;
     }).join("");
   }
@@ -329,19 +345,20 @@ footer a, .byline { overflow-wrap: anywhere; }
     lab.t.setAttribute("x", x); lab.t.setAttribute("y", y);
     lab.t.querySelectorAll("tspan[dy]").forEach((sp) => sp.setAttribute("x", x));
   }
-  function arrow(svg, x1, y1, x2, y2) {
+  function arrow(svg, x1, y1, x2, y2, mk) {
     const p = document.createElementNS(NS, "path");
     const my = (y1 + y2) / 2;
     p.setAttribute("d", `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`);
-    p.setAttribute("marker-end", "url(#ah)");
+    p.setAttribute("marker-end", `url(#${mk})`);
     svg.appendChild(p);
   }
-  function drawCallouts() {
-    const wrap = $("q-wrap"), svg = $("q-callouts");
-    const toks = [...document.querySelectorAll("#q-tokens .tok")];
+  // Two drawings use this: the query (default) and the document.
+  function drawCallouts(wrapId = "q-wrap", svgId = "q-callouts", tokSel = "#q-tokens .tok", mk = "ah") {
+    const wrap = $(wrapId), svg = $(svgId);
+    const toks = [...document.querySelectorAll(tokSel)];
     const cls = toks.find((t) => t.textContent === "[CLS]");
     const sep = toks.slice().reverse().find((t) => t.textContent === "[SEP]");
-    svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" style="fill: var(--muted); stroke: none"/></marker></defs>';
+    svg.innerHTML = `<defs><marker id="${mk}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" style="fill: var(--muted); stroke: none"/></marker></defs>`;
     wrap.style.paddingTop = "0px"; wrap.style.paddingBottom = "0px";
     const width = wrap.getBoundingClientRect().width;
     const labCls = cls ? makeLabel(svg, "[CLS]", ["is added by the tokenizer at the start,", "and reads the whole text"], width) : null;
@@ -358,7 +375,7 @@ footer a, .byline { overflow-wrap: anywhere; }
       const tx = Math.max(0, Math.min(x - 18, width - labCls.w));
       place(labCls, tx, 15);
       const ax = Math.min(Math.max(x, tx + 10), tx + labCls.w - 10);
-      arrow(svg, ax, labCls.lines * LINE - 1, x, r.top - W.top - 4);
+      arrow(svg, ax, labCls.lines * LINE - 1, x, r.top - W.top - 4, mk);
     }
     if (labSep) {
       const r = sep.getBoundingClientRect();
@@ -367,14 +384,14 @@ footer a, .byline { overflow-wrap: anywhere; }
       const ty = W.height - labSep.lines * LINE + 11;
       place(labSep, tx, ty);
       const ax = Math.min(Math.max(x, tx + 10), tx + labSep.w - 10);
-      arrow(svg, ax, ty - 16, x, r.bottom - W.top + 4);
+      arrow(svg, ax, ty - 16, x, r.bottom - W.top + 4, mk);
     }
   }
   // Arrow from the right margin to the terms: "Point at a term to see where it comes from."
-  function drawVectorHint() {
-    const wrap = $("v-wrap"), svg = $("v-callout");
-    const terms = [...document.querySelectorAll("#q-vector .term")];
-    svg.innerHTML = '<defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" style="fill: var(--muted); stroke: none"/></marker></defs>';
+  function drawVectorHint(wrapId = "v-wrap", svgId = "v-callout", vecSel = "#q-vector .term", mk = "ah2") {
+    const wrap = $(wrapId), svg = $(svgId);
+    const terms = [...document.querySelectorAll(vecSel)];
+    svg.innerHTML = `<defs><marker id="${mk}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" style="fill: var(--muted); stroke: none"/></marker></defs>`;
     wrap.style.paddingBottom = "0px";
     if (!terms.length) return;
     const t = document.createElementNS(NS, "text");
@@ -391,7 +408,7 @@ footer a, .byline { overflow-wrap: anywhere; }
       t.setAttribute("x", tx); t.setAttribute("y", y + 5);
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", `M${tx - 8},${y} C${tx - 30},${y} ${end.r + 30},${y} ${end.r + 8},${y}`);
-      p.setAttribute("marker-end", "url(#ah2)");
+      p.setAttribute("marker-end", `url(#${mk})`);
       svg.appendChild(p);
       svg.setAttribute("height", W.height);
     } else {
@@ -408,13 +425,16 @@ footer a, .byline { overflow-wrap: anywhere; }
       p.setAttribute("d", Math.abs(ax - x) < 2
         ? `M${x},${ty - 17} L${x},${last.b + 4}`                    // straight up
         : `M${ax},${ty - 17} C${ax},${(ty - 17 + last.b) / 2} ${x},${(ty - 17 + last.b) / 2} ${x},${last.b + 4}`);
-      p.setAttribute("marker-end", "url(#ah2)");
+      p.setAttribute("marker-end", `url(#${mk})`);
       svg.appendChild(p);
       svg.setAttribute("height", W.height);
     }
   }
-  window.addEventListener("resize", () => { drawCallouts(); drawVectorHint(); });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawCallouts(); drawVectorHint(); });
+  const drawDocCallouts = () => drawCallouts("d-wrap", "d-callouts", "#d-tokens .tok", "ahd");
+  const drawDocHint = () => drawVectorHint("dv-wrap", "dv-callout", "#d-vector .term", "ah2d");
+  const redrawAll = () => { drawCallouts(); drawVectorHint(); drawDocCallouts(); drawDocHint(); };
+  window.addEventListener("resize", redrawAll);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
 
   // ---------- hero: query vector ----------
   let current = 0;
@@ -432,22 +452,45 @@ footer a, .byline { overflow-wrap: anywhere; }
     drawVectorHint();
     $("caption").textContent = `${pct(q.expansion_weight_share)} of the total weight is on terms SPLADE added.`;
     $("ex-note").textContent = ex.note || "";
+    renderDocument(ex);
     renderScore(ex);
     document.querySelectorAll("#picker button").forEach((b) =>
       b.setAttribute("aria-pressed", String(b.id === "own-btn" ? ex.id === "custom" : +b.dataset.i === k)));
   }
-  function lightSource(btn, on) {
+  // The same drawing for the document: its words, then its vector.
+  const DOC_TERMS = 60;
+  function renderDocument(ex) {
+    const d = ex.document;
+    $("d-tokens").innerHTML = tokenSpans(d, { focus: true });
+    drawDocCallouts();
+    const terms = d.terms.slice().sort((a, b) => b.w - a.w);
+    const top = terms.slice(0, DOC_TERMS);
+    const maxw = Math.max(...top.map((t) => t.w), 1e-9);
+    $("d-vector").innerHTML = top.map((t) => {
+      const size = 0.8 + 1.3 * Math.sqrt(t.w / maxw);
+      return `<button type="button" class="term${t.in_input ? "" : " exp"}" style="font-size:${size.toFixed(2)}rem" data-pos="${t.pos}" data-w="${t.w}" data-term="${esc(t.term)}" data-in="${t.in_input}">${esc(t.term)}</button>`;
+    }).join("");
+    drawDocHint();
+    const cut = terms.length > top.length ? ` Showing the ${top.length} heaviest of its ${terms.length} terms.` : "";
+    $("d-caption").textContent = `${pct(d.expansion_weight_share)} of the total weight is on terms SPLADE added.${cut}`;
+  }
+  // Point at a term: which token its weight comes from.
+  function lightSource(btn, on, side) {
+    const doc = side === "document";
     const pos = btn.dataset.pos;
-    document.querySelectorAll("#q-tokens .tok").forEach((s) => s.classList.toggle("lit", on && s.dataset.pos === pos));
+    document.querySelectorAll(doc ? "#d-tokens .tok" : "#q-tokens .tok").forEach((s) => s.classList.toggle("lit", on && s.dataset.pos === pos));
     if (on) {
-      const tok = D.examples[current].query.tokens[+pos];
-      const how = btn.dataset.in === "true" ? "is written in the query" : "was added by SPLADE";
-      $("caption").innerHTML = `<b>${esc(btn.dataset.term)}</b> ${how} → its weight ${fmt(btn.dataset.w)} comes from the token <b>${esc(tok)}</b> (position ${pos}).`;
+      const rep = doc ? D.examples[current].document : D.examples[current].query;
+      const tok = rep.tokens[+pos];
+      const how = btn.dataset.in === "true" ? (doc ? "is written in the document" : "is written in the query") : "was added by SPLADE";
+      $(doc ? "d-caption" : "caption").innerHTML = `<b>${esc(btn.dataset.term)}</b> ${how} → its weight ${fmt(btn.dataset.w)} comes from the token <b>${esc(tok)}</b> (position ${pos}).`;
     }
   }
-  $("q-vector").addEventListener("mouseover", (e) => { const b = e.target.closest(".term"); if (b) lightSource(b, true); });
-  $("q-vector").addEventListener("focusin", (e) => { const b = e.target.closest(".term"); if (b) lightSource(b, true); });
-  $("q-vector").addEventListener("mouseleave", () => document.querySelectorAll("#q-tokens .tok").forEach((s) => s.classList.remove("lit")));
+  [["q-vector", "query", "#q-tokens .tok"], ["d-vector", "document", "#d-tokens .tok"]].forEach(([id, side, toks]) => {
+    $(id).addEventListener("mouseover", (e) => { const b = e.target.closest(".term"); if (b) lightSource(b, true, side); });
+    $(id).addEventListener("focusin", (e) => { const b = e.target.closest(".term"); if (b) lightSource(b, true, side); });
+    $(id).addEventListener("mouseleave", () => document.querySelectorAll(toks).forEach((s) => s.classList.remove("lit")));
+  });
 
   function renderPicker() {
     $("picker").innerHTML = D.examples.map((ex, i) => ex.id === "custom" ? "" : `<button type="button" aria-pressed="false" data-i="${i}">${esc(ex.query.text)}</button>`).join("") +
@@ -493,8 +536,6 @@ footer a, .byline { overflow-wrap: anywhere; }
     $("split").innerHTML = `<div class="a" style="width:${100 * (1 - exp)}%"></div><div class="b" style="width:${100 * exp}%"></div>`;
     $("split").setAttribute("aria-label", `${pct(1 - exp)} of the score from terms written in both texts, ${pct(exp)} from terms added by SPLADE`);
     $("flow").innerHTML = flowSVG(ex);
-    $("d-tokens").innerHTML = tokenSpans(ex.document, { shade: true });
-    $("d-caption").textContent = "Point at a word to see which terms it produces.";
     $("match-table").innerHTML = `<thead><tr><th>term</th><th class="num">query weight</th><th class="num">document weight</th><th class="num">product</th><th class="num">share</th><th>from (query → document)</th></tr></thead><tbody>` +
       ex.matches.map((m) => `<tr><td><span class="term${m.kind === "exact" ? "" : " exp"}">${esc(m.term)}</span></td><td class="num">${fmt(m.qw)}</td><td class="num">${fmt(m.dw)}</td><td class="num">${fmt(m.c)}</td><td class="num">${(100 * m.share).toFixed(1)}%</td><td style="font-family:var(--mono)">${esc(ex.query.tokens[m.qpos])} → ${esc(ex.document.tokens[m.dpos])}</td></tr>`).join("") + "</tbody>";
   }
