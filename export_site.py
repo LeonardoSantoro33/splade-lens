@@ -8,6 +8,9 @@ includes the summaries written by analyze.py (results/*.summary.json), if there 
     python export_site.py
     python export_site.py --examples examples/examples.json --results results
     python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 110
+    # both 8-bit and full precision (upload both with convert_onnx.py --push-fp32):
+    python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx \
+        --browser-model-mb 110 --browser-fp32-mb 440
 
 Then open docs/index.html in a browser, or publish the docs/ folder with GitHub Pages.
 """
@@ -57,8 +60,10 @@ def main():
     ap.add_argument("--browser-model", default="",
                     help="Hugging Face repo with the ONNX model (convert_onnx.py) for the 'Try your own text' box; "
                          "without it the box is not shown")
-    ap.add_argument("--browser-dtype", default="q8", help="q8 (8-bit, smaller download) or fp32")
-    ap.add_argument("--browser-model-mb", type=int, default=0, help="download size shown to visitors")
+    ap.add_argument("--browser-dtype", default="q8", help="q8 (8-bit, smaller download) or fp32; used when only one is offered")
+    ap.add_argument("--browser-model-mb", type=int, default=0, help="download size of the 8-bit model, shown to visitors")
+    ap.add_argument("--browser-fp32-mb", type=int, default=0,
+                    help="download size of the full-precision model; if given, the page offers both (8-bit and full precision)")
     args = ap.parse_args()
 
     spec = json.loads(Path(args.examples).read_text(encoding="utf-8"))
@@ -100,9 +105,13 @@ def main():
             })
         print(f"findings: {len(findings)} summary file(s) from {res}")
 
+    options = []
+    if args.browser_model and args.browser_fp32_mb:
+        options = [{"dtype": "q8", "label": "Fast (8-bit)", "mb": args.browser_model_mb},
+                   {"dtype": "fp32", "label": "Exact (full precision)", "mb": args.browser_fp32_mb}]
     data = {"model": args.model, "max_length": args.max_length,
             "browser_model": args.browser_model, "browser_dtype": args.browser_dtype,
-            "browser_model_mb": args.browser_model_mb,
+            "browser_model_mb": args.browser_model_mb, "browser_options": options,
             "generated": datetime.date.today().isoformat(),
             "examples": examples, "comparisons": comparisons, "findings": findings}
     out = Path(args.out)

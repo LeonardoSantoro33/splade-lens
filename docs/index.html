@@ -139,6 +139,10 @@ footer a, .byline { overflow-wrap: anywhere; }
 .live .go:disabled { opacity: .55; cursor: progress; }
 .live .status { color: var(--muted); font-size: .95rem; margin: 10px 0 0; min-height: 1.4em; }
 .picker button.own { border-style: dashed; }
+.live .prec { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.live .prec button { font: inherit; font-size: .95rem; cursor: pointer; padding: 6px 14px; border: 1px solid var(--rule); border-radius: 999px; background: var(--paper); color: var(--ink); }
+.live .prec button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.live .prec-note { color: var(--muted); font-size: .9rem; margin: 6px 0 0; }
 
 @media (max-width: 720px) {
   header.top { padding-top: 40px; }
@@ -159,6 +163,8 @@ footer a, .byline { overflow-wrap: anywhere; }
   <div class="picker" role="group" aria-label="Choose an example" id="picker"></div>
   <div class="live" id="live" hidden>
     <p style="margin:0">Write a query and a document. SPLADE runs in your browser: the first time it downloads <span id="live-size">about 110 MB</span>, then it stays in the browser's cache.</p>
+    <div class="prec" id="live-prec" role="group" aria-label="Model precision" hidden></div>
+    <p class="prec-note" id="live-prec-note" hidden></p>
     <label for="live-q">Query</label>
     <textarea id="live-q" rows="2">what causes tiredness</textarea>
     <label for="live-d">Document</label>
@@ -590,29 +596,53 @@ const D = window.SPLADE_DATA;
 const $ = (id) => document.getElementById(id);
 if (D && D.browser_model) {
   const LIB = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
-  const dtype = D.browser_dtype || "q8";
-  if (D.browser_model_mb) $("live-size").textContent = `about ${D.browser_model_mb} MB`;
-  let tok = null, model = null;
+  // Precision options: D.browser_options (list), or the single model of an older data.js.
+  const options = (D.browser_options && D.browser_options.length) ? D.browser_options
+    : [{ dtype: D.browser_dtype || "q8", mb: D.browser_model_mb || 0, label: "" }];
+  let sel = 0;
+  let tok = null;
+  const models = {};   // dtype -> loaded model
+  const dtype = () => options[sel].dtype;
+  function renderPrecision() {
+    const o = options[sel];
+    $("live-size").textContent = o.mb ? `about ${o.mb} MB` : "a large file";
+    if (options.length < 2) return;
+    $("live-prec").hidden = false;
+    $("live-prec-note").hidden = false;
+    $("live-prec").innerHTML = options.map((x, i) =>
+      `<button type="button" data-i="${i}" aria-pressed="${i === sel}">${x.label}${x.mb ? ` · ${x.mb} MB` : ""}</button>`).join("");
+    $("live-prec-note").textContent = o.dtype === "fp32"
+      ? "Full precision: the same numbers as the examples above."
+      : "8-bit: a smaller download; weights can differ slightly from the examples above.";
+  }
+  renderPrecision();
+  $("live-prec").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    sel = +b.dataset.i;
+    renderPrecision();
+  });
   async function load() {
     const { AutoTokenizer, AutoModelForMaskedLM } = await import(LIB);
     const progress = (p) => {
       if (p.status === "progress" && p.file && p.file.endsWith(".onnx")) $("live-status").textContent = `Downloading SPLADE: ${Math.round(p.progress)}%`;
     };
     $("live-status").textContent = "Loading SPLADE…";
-    tok = await AutoTokenizer.from_pretrained(D.browser_model);
-    model = await AutoModelForMaskedLM.from_pretrained(D.browser_model, { dtype, progress_callback: progress });
+    if (!tok) tok = await AutoTokenizer.from_pretrained(D.browser_model);
+    if (!models[dtype()]) models[dtype()] = await AutoModelForMaskedLM.from_pretrained(D.browser_model, { dtype: dtype(), progress_callback: progress });
+    return models[dtype()];
   }
   $("live-go").addEventListener("click", async () => {
     const qt = $("live-q").value, dt = $("live-d").value;
     if (!qt.trim() || !dt.trim()) { $("live-status").textContent = "Write both a query and a document."; return; }
     $("live-go").disabled = true;
     try {
-      if (!model) await load();
+      const model = await load();
       $("live-status").textContent = "Computing…";
       const q = await encode(tok, model, qt, D.max_length);
       const d = await encode(tok, model, dt, D.max_length);
       d.terms = d.all.map((t) => ({ term: t.term, w: t.w, pos: t.pos, in_input: t.in_input }));   // all terms, for the hover
-      const ex = { id: "custom", note: `Computed in your browser with ${D.browser_model} (${dtype}); numbers can differ slightly from the precomputed examples.`, ...explain(q, d) };
+      const ex = { id: "custom", note: `Computed in your browser with ${D.browser_model} (${dtype() === "fp32" ? "full precision" : "8-bit"})${dtype() === "fp32" ? "." : "; numbers can differ slightly from the precomputed examples."}`, ...explain(q, d) };
       window.SPLADE_UI.show(ex);
       $("live-status").textContent = "Done. The explanation is below.";
       $("stage").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
