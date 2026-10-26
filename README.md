@@ -1,15 +1,3 @@
----
-title: SPLADE lens
-emoji: 🔍
-colorFrom: blue
-colorTo: gray
-sdk: gradio
-sdk_version: 6.30.0
-app_file: app.py
-pinned: false
-license: mit
----
-
 # SPLADE lens
 
 **An interactive tool that shows what SPLADE does to a query and a document: which terms it adds,
