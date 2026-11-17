@@ -15,8 +15,7 @@ vectors. Unlike BM25, the vector contains terms that are **not in the text**: th
 Expansion is why SPLADE finds documents that use different words from the query. It is also what
 makes its behaviour hard to see.
 
-This tool makes that behaviour visible, for any query and document, and measures it on real
-relevance judgements:
+This tool makes that behaviour visible, for any query and document:
 
 1. **Term provenance.** For every term in the vector, the input position it came from.
 2. **Score decomposition.** The score split into one contribution per matching term. Each match is
@@ -52,7 +51,7 @@ python -m splade_lens "query" "document" --json            # everything, as JSON
 ```
 
 The website in `docs/` is static: it shows examples computed in advance. To rebuild its data
-after editing `examples/examples.json` or running `analyze.py`:
+after editing `examples/examples.json`:
 
 ```bash
 python export_site.py          # writes docs/data.js, then open docs/index.html
@@ -84,10 +83,10 @@ are truncated to 256 tokens (`SPLADE_MAX_LENGTH`).
 | `splade_lens/report.py` | text and JSON views of an explanation |
 | `splade_lens/__main__.py` | command-line interface |
 | `app.py` | interactive web interface (Gradio) to run on your own texts; also usable as a Hugging Face Space |
-| `docs/index.html` | the static website (GitHub Pages): the examples, the score flow, the comparison and the findings |
+| `docs/index.html` | the static website (GitHub Pages): the examples, the score flow and the comparison |
 | `docs/splade-core.js` | the same SPLADE computation in JavaScript, for the in-browser box |
 | `convert_onnx.py` | exports the model to ONNX (full precision and 8-bit), checks both against PyTorch, uploads to the hub |
-| `export_site.py` | runs the model on `examples/examples.json`, collects `results/*.summary.json`, writes `docs/data.js` for the website |
+| `export_site.py` | runs the model on `examples/examples.json`, and writes `docs/data.js` for the website |
 | `examples/examples.json` | the query–document pairs and comparisons shown on the website |
 | `tests/` | tests on a tiny randomly initialised BERT built offline. They check the weights and source positions against an independent brute-force computation, and that the score decomposition is exact |
 
@@ -96,7 +95,7 @@ are truncated to 256 tokens (`SPLADE_MAX_LENGTH`).
 [SPLADE Visualizer](https://www.nathanleroy.dev/spladeviz/) shows, in the browser, how a SPLADE
 vector is built for a single query. SPLADE lens focuses on the query–document score: it decomposes
 it term by term, separates matches on words written in both texts from matches created by
-expansion, and measures this on test collections with relevance judgements.
+expansion.
 
 ## Limitations
 
