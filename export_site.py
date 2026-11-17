@@ -2,15 +2,13 @@
 export_site.py — Run the model on the examples and write the data of the website (docs/data.js).
 
 The website (docs/index.html) is static: it does not run the model. This script runs it on your
-machine, on the examples in examples/examples.json, and saves everything the page shows. It also
-includes the summaries written by analyze.py (results/*.summary.json), if there are any.
+machine, on the examples in examples/examples.json, and saves everything the page shows.
 
     python export_site.py
-    python export_site.py --examples examples/examples.json --results results
     python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 110
     # both 8-bit and full precision (upload both with convert_onnx.py --push-fp32):
     python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx \
-        --browser-model-mb 110 --browser-fp32-mb 440
+        --browser-model-mb 110 --browser-fp32-mb 532
 
 Then open docs/index.html in a browser, or publish the docs/ folder with GitHub Pages.
 """
