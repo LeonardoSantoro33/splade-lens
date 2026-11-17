@@ -86,15 +86,6 @@ The model is chosen with the `SPLADE_MODEL` environment variable. The default is
 `naver/splade-cocondenser-ensembledistil`, downloaded from the Hugging Face hub on first use. Texts
 are truncated to 256 tokens (`SPLADE_MAX_LENGTH`).
 
-## Findings
-
-**[To be written from `results/*.summary.json` after running `analyze.py`. Report only numbers
-from those files, with the dataset and the number of pairs.]**
-
-| dataset | pairs | score share from expansion terms (mean / median) | pairs where expansion > 50% of the score | query weight on expansion terms (mean) |
-|---|---|---|---|---|
-| | | | | |
-
 ## Files
 
 | file | purpose |
