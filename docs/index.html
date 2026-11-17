@@ -254,13 +254,6 @@ footer a, .byline { overflow-wrap: anywhere; }
     <div class="diff" id="c-diff"></div>
   </section>
 
-  <section id="findings" hidden>
-    <h2>On real data</h2>
-    <p class="intro">The same decomposition, run over every judged-relevant (query, document) pair of public test collections.</p>
-    <table id="findings-table"></table>
-    <p class="note">Numbers from <code>analyze.py</code>; one row per collection.</p>
-  </section>
-
   <section id="how" class="prose">
     <h2>How it works</h2>
     <p>SPLADE turns a text into a vector with one weight for each of the 30,522 entries of the BERT vocabulary:</p>
@@ -634,13 +627,6 @@ footer a, .byline { overflow-wrap: anywhere; }
     renderCompare(0);
   } else {
     $("compare").hidden = true;
-  }
-
-  // ---------- findings ----------
-  if (D.findings && D.findings.length) {
-    $("findings").hidden = false;
-    $("findings-table").innerHTML = `<thead><tr><th>collection</th><th class="num">pairs</th><th class="num">score from added terms (mean / median)</th><th class="num">pairs where added terms give over half the score</th><th class="num">query weight on added terms</th><th>added terms that match most often</th></tr></thead><tbody>` +
-      D.findings.map((f) => `<tr><td>${esc(f.name)}</td><td class="num">${f.pairs}</td><td class="num">${pct(f.expansion_share_mean)} / ${pct(f.expansion_share_median)}</td><td class="num">${f.majority_expansion} (${pct(f.majority_expansion / f.pairs)})</td><td class="num">${pct(f.query_expansion_weight_mean)}</td><td style="font-family:var(--mono);font-size:.88rem">${f.top_expansion_terms.slice(0, 8).map(esc).join(", ")}</td></tr>`).join("") + "</tbody>";
   }
 
   if (D.examples.length) renderExample(0);
