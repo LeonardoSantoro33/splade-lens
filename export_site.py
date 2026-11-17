@@ -5,6 +5,7 @@ The website (docs/index.html) is static: it does not run the model. This script 
 machine, on the examples in examples/examples.json, and saves everything the page shows.
 
     python export_site.py
+    python export_site.py --examples examples/examples.json
     python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 110
     # both 8-bit and full precision (upload both with convert_onnx.py --push-fp32):
     python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx \
@@ -12,6 +13,7 @@ machine, on the examples in examples/examples.json, and saves everything the pag
 
 Then open docs/index.html in a browser, or publish the docs/ folder with GitHub Pages.
 """
+
 import argparse
 import datetime
 import json
