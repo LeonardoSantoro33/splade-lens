@@ -64,7 +64,7 @@ on the Hugging Face hub:
 ```bash
 pip install onnx onnxruntime
 python convert_onnx.py --out splade_onnx --push <user>/splade-cocondenser-ensembledistil-onnx
-python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 110 --browser-fp32-mb 532
+python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 134 --browser-fp32-mb 532
 cd docs && python -m http.server 8000      # the in-browser box needs http://, not file://
 ```
 
