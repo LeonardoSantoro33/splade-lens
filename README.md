@@ -97,6 +97,23 @@ vector is built for a single query. SPLADE lens focuses on the query–document 
 it term by term, separates matches on words written in both texts from matches created by
 expansion.
 
+## Verification
+
+`verify_reference.py` compares SPLADE lens with an independent implementation of SPLADE (the
+formula of the model card: a padded batch, `log(1 + relu(logits))` masked, maximum over positions)
+on the 13 texts and 8 query–document pairs of `examples/examples.json`, with
+`naver/splade-cocondenser-ensembledistil` and `max_length` 256. On that run:
+
+- largest difference of a weight, over all 30,522 terms: 5.1e-6;
+- the same terms are non-zero in every text, and the top-20 terms coincide (20/20) in every text;
+- largest difference of a score: 2.1e-5; the term contributions sum to the score exactly.
+
+These are float32 rounding differences. The check covers the Python code and the "Exact" (full
+precision) option in the browser; the 8-bit option differs more (see Limitations). It uses the
+website's examples only, and the reference was written by the same author, so it checks that the
+formula was implemented as intended, not the quality of the model. Reproduce with
+`python verify_reference.py`.
+
 ## Limitations
 
 The in-browser model is an 8-bit quantised ONNX export. On 3 test texts its top-20 terms matched PyTorch on 14/20, 20/20 and 17/20 positions, with a largest SPLADE weight difference of 0.7048. The full-precision ONNX export matched on 20/20 for all three, with a largest difference of 1.218e-05. The examples on the site are computed in PyTorch.
