@@ -64,7 +64,7 @@ on the Hugging Face hub:
 ```bash
 pip install onnx onnxruntime
 python convert_onnx.py --out splade_onnx --push <user>/splade-cocondenser-ensembledistil-onnx
-python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 110
+python export_site.py --browser-model <user>/splade-cocondenser-ensembledistil-onnx --browser-model-mb 110 --browser-fp32-mb 532
 cd docs && python -m http.server 8000      # the in-browser box needs http://, not file://
 ```
 
@@ -88,14 +88,13 @@ are truncated to 256 tokens (`SPLADE_MAX_LENGTH`).
 | `convert_onnx.py` | exports the model to ONNX (full precision and 8-bit), checks both against PyTorch, uploads to the hub |
 | `export_site.py` | runs the model on `examples/examples.json`, and writes `docs/data.js` for the website |
 | `examples/examples.json` | the query–document pairs and comparisons shown on the website |
-| `tests/` | tests on a tiny randomly initialised BERT built offline. They check the weights and source positions against an independent brute-force computation, and that the score decomposition is exact |
+| `tests/` | tests on a tiny randomly initialised BERT built offline. They check the weights and source positions against an independent brute-force computation, and that the score decomposition is exact (arithmetic and provenance, not the quality of the real model) |
+| `verify_reference.py` | compares splade_lens with an independent implementation of SPLADE (the model-card formula) on the example texts and writes results/verification.json |
 
 ## Related work
 
 [SPLADE Visualizer](https://www.nathanleroy.dev/spladeviz/) shows, in the browser, how a SPLADE
-vector is built for a single query. SPLADE lens focuses on the query–document score: it decomposes
-it term by term, separates matches on words written in both texts from matches created by
-expansion.
+vector is built for a single query. SPLADE lens focuses on the query–document score: it decomposes it term by term and separates matches on words written in both texts from matches created by expansion.
 
 ## Verification
 
@@ -121,7 +120,7 @@ The in-browser model is an 8-bit quantised ONNX export. On 3 test texts its top-
   several terms.
 - The default model is trained on English (MS MARCO).
 - Provenance is exact for the pooling step, not a causal explanation of the network.
-- Texts longer than the maximum length are truncated; the interface and the analysis report it.
+- Texts longer than the maximum length are truncated; the interface reports it.
 
 ## Credits and licences
 
