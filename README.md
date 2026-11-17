@@ -24,9 +24,6 @@ relevance judgements:
    least one side).
 3. **Pairwise comparison.** For one query and two documents, the terms that decide which document
    ranks first.
-4. **Corpus-level analysis** (`analyze.py`). The share of the score that comes from expansion terms
-   over many (query, relevant document) pairs, and the expansion terms that create matches most
-   often.
 
 ## How it works
 
@@ -52,13 +49,6 @@ pip install -r requirements.txt
 python app.py                                              # web interface on http://127.0.0.1:7860
 python -m splade_lens "symptoms of low iron" "Anemia caused by a lack of iron ..."   # terminal
 python -m splade_lens "query" "document" --json            # everything, as JSON
-```
-
-Corpus-level analysis on a public test collection (needs `pip install ir_datasets`):
-
-```bash
-python make_pairs.py beir/scifact/test pairs/scifact.tsv   # (query, relevant document) pairs
-python analyze.py pairs/scifact.tsv                        # -> results/scifact.summary.json
 ```
 
 The website in `docs/` is static: it shows examples computed in advance. To rebuild its data
@@ -99,8 +89,6 @@ are truncated to 256 tokens (`SPLADE_MAX_LENGTH`).
 | `convert_onnx.py` | exports the model to ONNX (full precision and 8-bit), checks both against PyTorch, uploads to the hub |
 | `export_site.py` | runs the model on `examples/examples.json`, collects `results/*.summary.json`, writes `docs/data.js` for the website |
 | `examples/examples.json` | the query–document pairs and comparisons shown on the website |
-| `make_pairs.py` | writes (query, relevant document) pairs from an `ir_datasets` collection |
-| `analyze.py` | runs the lens over many pairs and writes per-pair results and a summary |
 | `tests/` | tests on a tiny randomly initialised BERT built offline. They check the weights and source positions against an independent brute-force computation, and that the score decomposition is exact |
 
 ## Related work
