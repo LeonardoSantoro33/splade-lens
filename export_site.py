@@ -1,7 +1,8 @@
 """
 export_site.py — Run the model on the examples and write the data of the website (docs/data.js).
 
-The website (docs/index.html) is static: it does not run the model. This script runs it on your machine, on the examples in examples/examples.json, and saves everything the page shows. It also
+The website (docs/index.html) is static: it does not run the model. This script runs it on your
+machine, on the examples in examples/examples.json, and saves everything the page shows. It also
 includes the summaries written by analyze.py (results/*.summary.json), if there are any.
 
     python export_site.py
