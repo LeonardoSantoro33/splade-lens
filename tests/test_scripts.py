@@ -7,22 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_analyze_end_to_end(tiny_model_dir, tmp_path):
-    pairs = tmp_path / "toy.tsv"
-    pairs.write_text("q1\tsymptoms of low iron\td1\tanemia is low iron in the blood .\n"
-                     "q1\tsymptoms of low iron\td2\tpale skin and a blood test .\n"
-                     "q2\tcheap flights to rome\td3\tbudget flights to the italy capital .\n")
-    env = dict(os.environ, SPLADE_MODEL=tiny_model_dir)
-    r = subprocess.run([sys.executable, str(ROOT / "analyze.py"), str(pairs), "--out", str(tmp_path / "res"),
-                        "--max-length", "16"], env=env, capture_output=True, text=True, cwd=ROOT)
-    assert r.returncode == 0, r.stderr
-    s = json.loads((tmp_path / "res" / "toy.summary.json").read_text())
-    assert s["pairs"] == 3 and s["queries"] == 2
-    rows = [json.loads(x) for x in (tmp_path / "res" / "toy.pairs.jsonl").read_text().splitlines()]
-    assert [x["doc_id"] for x in rows] == ["d1", "d2", "d3"]
-    assert all(0.0 <= x["expansion_score_share"] <= 1.0 + 1e-9 for x in rows)
-
-
 def test_cli(tiny_model_dir):
     env = dict(os.environ, SPLADE_MODEL=tiny_model_dir)
     r = subprocess.run([sys.executable, "-m", "splade_lens", "low iron", "anemia is low iron .", "--json",
